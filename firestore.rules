@@ -1,0 +1,149 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+
+    function isSystemAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email == "nare198653@gmail.com";
+    }
+
+    function isProfileAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isAdmin() {
+      return isSystemAdmin() || isProfileAdmin();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // Validation Blueprints
+    // ===============================================================
+    function isValidUser(data) {
+      return (data.uid == null || data.uid is string) &&
+             (data.name == null || (data.name is string && data.name.size() < 100)) &&
+             (data.role == null || data.role in ['worker', 'customer', 'admin']);
+    }
+
+    function isValidJob(data) {
+      return (data.id == null || data.id is string) &&
+             (data.customerId == null || data.customerId is string) &&
+             (data.title == null || (data.title is string && data.title.size() < 200)) &&
+             (data.status == null || data.status in ['open', 'assigned', 'completed', 'cancelled']);
+    }
+
+    function isValidBooking(data) {
+      return (data.customerId == null || data.customerId is string) &&
+             (data.workerId == null || data.workerId is string) &&
+             (data.status == null || data.status in ['pending', 'confirmed', 'arriving', 'in-progress', 'completed', 'cancelled']);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      
+      allow create: if (uid == request.auth.uid && 
+                       incoming().keys().hasAll(['uid', 'name', 'role']) &&
+                       isValidUser(incoming())) || isAdmin();
+      allow update: if (uid == request.auth.uid && isValidUser(incoming()) && 
+                       (incoming().role == null || incoming().role == existing().role)) || isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+
+      allow create: if (isAuthenticated() && 
+                       incoming().keys().hasAll(['id', 'customerId', 'title', 'skillRequired', 'status']) &&
+                       isValidJob(incoming()) && incoming().customerId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && isValidJob(incoming()) && (
+        existing().customerId == request.auth.uid || 
+        existing().assignedWorkerId == request.auth.uid ||
+        isAdmin()
+      ));
+
+      match /bids/{bidId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/jobs/$(jobId)).data.customerId == request.auth.uid ||
+          resource.data.workerId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create: if isAuthenticated() && incoming().workerId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && existing().workerId == request.auth.uid;
+      }
+    }
+
+    match /chats/{chatId} {
+      allow get: if isAuthenticated() && (request.auth.uid in resource.data.participants || isAdmin());
+      allow list: if isAuthenticated() && (request.auth.uid in resource.data.participants || isSystemAdmin());
+      
+      allow create: if isAuthenticated() && request.auth.uid in incoming().participants;
+      allow update: if isAuthenticated() && request.auth.uid in existing().participants;
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isAuthenticated() && incoming().senderId == request.auth.uid && 
+                        request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+
+    match /bookings/{bookingId} {
+      allow get: if isAuthenticated() && (resource.data.customerId == request.auth.uid || resource.data.workerId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated();
+      
+      allow create: if (isAuthenticated() && 
+                       incoming().keys().hasAll(['customerId', 'workerId', 'status', 'createdAt']) &&
+                       isValidBooking(incoming()) && incoming().customerId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && isValidBooking(incoming()) && (
+        existing().customerId == request.auth.uid || 
+        existing().workerId == request.auth.uid || 
+        isAdmin()
+      ));
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && incoming().customerId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAdmin(); // Usually system generated or via cloud functions
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
+

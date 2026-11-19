@@ -1,0 +1,10 @@
+{
+  "name": "Copy of ChowkDirect - Local Worker App",
+  "description": "A hyperlocal platform connecting daily-wage workers (electricians, plumbers, laborers) directly with customers in their vicinity. Simple, fast, and middleman-free.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

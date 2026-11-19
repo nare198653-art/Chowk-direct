@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile for workers and customers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["worker", "customer"] },
+        "photo": { "type": "string" },
+        "phone": { "type": "string" },
+        "skill": { "type": "string" },
+        "experience": { "type": "number" },
+        "rating": { "type": "number" },
+        "totalReviews": { "type": "number" },
+        "isAvailable": { "type": "boolean" },
+        "location": { "type": "object" },
+        "verifiedStatus": { "type": "boolean" }
+      },
+      "required": ["uid", "name", "role"]
+    },
+    "Job": {
+      "title": "Job Posting",
+      "description": "A job posted by a customer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "skillRequired": { "type": "string" },
+        "pay": { "type": "number" },
+        "location": { "type": "object" },
+        "status": { "type": "string", "enum": ["open", "assigned", "completed", "cancelled"] },
+        "assignedWorkerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "customerId", "title", "skillRequired", "status"]
+    },
+    "Bid": {
+      "title": "Job Bid",
+      "description": "A bid placed by a worker on a job",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string" },
+        "workerId": { "type": "string" },
+        "amount": { "type": "number" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "jobId", "workerId", "amount"]
+    },
+    "Chat": {
+      "title": "Chat Session",
+      "description": "A chat session between two users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "participants"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A single message in a chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "chatId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "chatId", "senderId", "text"]
+    },
+    "Booking": {
+      "title": "Worker Booking",
+      "description": "A booking made by a customer for a worker",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "workerId": { "type": "string" },
+        "workerName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timeSlot": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "customerId", "workerId", "date", "timeSlot", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/jobs/{jobId}": { "schema": "Job", "description": "Job postings" },
+    "/jobs/{jobId}/bids/{bidId}": { "schema": "Bid", "description": "Bids for a job" },
+    "/chats/{chatId}": { "schema": "Chat", "description": "Chat sessions" },
+    "/chats/{chatId}/messages/{messageId}": { "schema": "Message", "description": "Messages in a chat" },
+    "/bookings/{bookingId}": { "schema": "Booking", "description": "Worker bookings" }
+  }
+}
